@@ -26,6 +26,7 @@ jobs:
       LATEST_TAG: latest
       # this needs to be updated on every release
       SOLR_CURR_VERSION: 6.6.11
+      DOCKERFILE: "Dockerfile.amd"
     steps:
       - uses: actions/checkout@v2
 
@@ -59,7 +60,21 @@ jobs:
       - name: Setup Maven repository
         id: configure-maven-settings
         run: cp $GITHUB_WORKSPACE/.maven.settings.xml $HOME/.m2/settings.xml
-      
+
+      - name: Determine Architecture
+        id: detect_architecture
+        run: echo "::set-output name=arch::$(uname -m)"
+
+      - name: Set Dockerfile based on Architecture
+        run: |
+          if [ "${{ steps.detect_architecture.outputs.arch }}" == "aarch64" ]; then
+            echo "Using ARM architecture Dockerfile"
+            export DOCKERFILE="Dockerfile.arm"
+          else
+            echo "Using AMD architecture Dockerfile"
+            export DOCKERFILE="Dockerfile.amd"
+          fi
+
       - name: extract build tag
         id: extract_tag
         env:
@@ -92,7 +107,7 @@ jobs:
             SOLR_CURR_VERSION=${BUILD_TAG//v/};
             echo $SOLR_CURR_VERSION
           fi
-          docker build --build-arg SOLR_ARG_VERSION=${SOLR_CURR_VERSION}-unbxd -t solr:latest .
+          docker build --build-arg SOLR_ARG_VERSION=${SOLR_CURR_VERSION}-unbxd -t solr:latest -f $DOCKERFILE .
 
       - name: Push binaries
         env:
